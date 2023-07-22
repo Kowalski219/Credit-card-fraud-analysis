@@ -1,0 +1,128 @@
+
+1 What is the overall distribution of fraudulent transactions in the dataset? What percentage of transactions are fraudulent?
+
+SELECT 
+	COUNT(*) AS total_transactions,
+	ROUND(	
+		CAST(	
+			SUM(
+				CASE WHEN is_fraud = true THEN 1 ELSE 0 END) AS decimal) 
+				/ COUNT(*), 4) *100 AS Percentage_of_fradulent_transactions, ROUND(	
+		CAST(	
+			SUM(
+				CASE WHEN is_fraud = false THEN 1 ELSE 0 END) AS decimal) 
+				/ COUNT(*), 4) * 100 AS Percentage_of_non_fradulent_transactions
+FROM fraudtrain;
+
+
+2 How does the frequency of fraudulent transactions vary over time? Are there any specific dates or time periods with higher fraud rates?
+
+SELECT 
+    CAST(TO_CHAR(TO_TIMESTAMP(trans_date_trans_time, 'YYYY/MM/DD'), 'YYYY-MM-DD') AS DATE) AS date,
+    COUNT(*) AS total_transactions,
+    COUNT(CASE WHEN is_fraud = 'yes' THEN 1 END) AS fraudulent_transactions,
+    ROUND(COUNT(CASE WHEN is_fraud = 'yes' THEN 1 END) * 1.0 / COUNT(*), 4) AS percentage_fraudulent
+FROM fraudtrain
+GROUP BY date
+HAVING CAST(TO_CHAR(TO_TIMESTAMP(trans_date_trans_time, 'YYYY/MM/DD'), 'YYYY-MM-DD') AS DATE)  IS NOT NULL
+AND  COUNT(CASE WHEN is_fraud = 'yes' THEN 1 END)IS NOT NULL
+ORDER BY fraudulent_transactions DESC
+LIMIT 10;
+
+
+3 Which merchants have the highest number of fraudulent transactions? Can you identify any specific patterns or characteristics of these merchants?
+
+SELECT merchant, COUNT(*) AS number_of_fradulent_transactions
+FROM fraudtrain
+WHERE is_fraud='yes'
+GROUP BY merchant
+ORDER BY number_of_fradulent_transactions DESC
+LIMIT 10;
+
+
+4 What are the most common categories of transactions associated with fraud? Are there any particular transaction categories that are more prone to fraud?
+
+SELECT category,COUNT(*) AS fraud_cases
+FROM fraudtrain
+WHERE is_fraud='yes'
+GROUP BY category
+ORDER BY category DESC;
+
+
+5 How does the average transaction amount differ between fraudulent and non-fraudulent transactions? Are there significant differences in the transaction amounts?
+
+SELECT 
+		(SELECT ROUND(AVG(amt),2)  AS fraud_amt
+		 FROM fraudtrain
+		 WHERE is_fraud='yes'
+		)  AS avg_trans_amt_of_fraud_trans,
+		 (SELECT ROUND(AVG(amt),2) AS non_fraud_amt
+		 FROM fraudtrain
+		 WHERE is_fraud='false') AS avg_trans_amt_of_non_fraud_trans		
+FROM fraudtrain ;
+
+6  Can you identify any patterns or trends in fraudulent transactions based on demographic information such as gender, age, or location?
+
+SELECT
+    ROUND(AVG(CASE WHEN is_fraud = 'yes' THEN amt ELSE 0 END),2)AS avg_trans_amt_of_fraud_trans,
+    ROUND(AVG(CASE WHEN is_fraud = 'false' THEN amt ELSE 0 END),2) AS avg_trans_amt_of_non_fraud_trans
+FROM fraudtrain;
+DROP TABLE  diff_btw_fraudlent_trans_and_non_fraudlent_trans;
+
+7  Are there any specific locations or cities with a higher concentration of fraudulent transactions? Can you visualize this on a map?
+
+SELECT gender, city, EXTRACT(YEAR FROM dob) AS year_of_birth, COUNT(*)AS num_of_fraud_cases
+FROM fraudtrain
+WHERE is_fraud= true
+GROUP BY gender,city,year_of_birth,lat,long
+ORDER BY num_of_fraud_cases DESC
+LIMIT 10;
+
+8  What are the top zip codes or states with the highest number of fraudulent transactions? How do they compare to non-fraudulent transactions?
+
+SELECT city, COUNT(*) AS num_of_fraud,long,lat
+FROM fraudtrain
+WHERE is_fraud= true
+GROUP BY city,long,lat
+ORDER BY num_of_fraud DESC
+LIMIT 10;
+
+9  Can you detect any correlations between the latitude/longitude of transactions and the likelihood of fraud? Are there specific regions that are more susceptible to fraud?
+WITH fraud_counts AS (
+    SELECT Zip AS Zip_code, state, COUNT(*) AS num_of_fraud_cases
+    FROM fraudtrain
+    WHERE is_fraud = true AND is_fraud IS NOT NULL
+    GROUP BY Zip_code, state
+)
+
+SELECT f.Zip_code, f.state, f.num_of_fraud_cases, n.num_of_non_fraud_cases
+FROM fraud_counts f
+LEFT JOIN (
+    SELECT Zip AS Zip_code, state, COUNT(*) AS num_of_non_fraud_cases
+    FROM fraudtrain
+    WHERE is_fraud = false AND is_fraud IS NOT NULL
+    GROUP BY Zip_code, state
+) n ON f.Zip_code = n.Zip_code AND f.state = n.state
+ORDER BY f.num_of_fraud_cases DESC
+LIMIT 10;
+
+
+10  Are there any specific job occupations that are more commonly associated with fraudulent transactions? Can you identify any patterns or trends in this regard?
+SELECT job, COUNT(*) AS num_of_fraud_cases
+FROM fraudtrain
+WHERE is_fraud= true
+GROUP BY job
+ORDER BY  num_of_fraud_cases DESC;
+
+
+11 average fraud amount and average age
+
+SELECT gender, ROUND(AVG(amt)) AS avg_fraud_amt, ROUND(AVG(EXTRACT(YEAR FROM dob)-2020) * -1) AS Avg_Age
+FROM fraudtrain
+WHERE is_fraud = true AND gender = 'M'
+GROUP BY gender
+UNION
+SELECT gender, ROUND(AVG(amt)) AS avg_fraud_amt, ROUND(AVG(EXTRACT(YEAR FROM dob)-2020)  * -1) AS Avg_Age
+FROM fraudtrain
+WHERE is_fraud = true AND gender = 'F'
+GROUP BY gender;
